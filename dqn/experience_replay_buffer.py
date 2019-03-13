@@ -23,7 +23,7 @@ class ExperienceReplayBuffer:
             (state_t, action_t, reward_t, state_{t+1}) for some t.
         """
         self.memory.append(experience)
-        while len(self.memory) > maximum_capacity:
+        while len(self.memory) > self.maximum_capacity:
             self.memory.pop()
 
     def uniform_sample(self, minibatch_size: int) -> List[Tuple]:
@@ -32,4 +32,5 @@ class ExperienceReplayBuffer:
         :param minibatch_size: The amount of experiences to sample.
         :returns: A list of experiences uniformly sampled from memory.
         """
-        return np.random.choice(self.memory, minibatch_size)
+        inds = np.random.randint(0, len(self.memory), size=minibatch_size)
+        return [self.memory[i] for i in inds]
