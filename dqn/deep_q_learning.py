@@ -44,14 +44,14 @@ def update_weights(Q, optimizer, experience_dataset, gamma) -> None:
     return total_loss / len(experience_dataset)
 
 
-def deep_q_learning(memory_max_capacity: int, num_episodes: int, minibatch_size: int,
+def deep_q_learning(memory_max_capacity: int, num_frames: int, minibatch_size: int,
                     gamma: float, Q=None, optimizer=None):
     """
     Implementation of the Deep Q-learning with Experience Replay algorithm from 
         Playing Atari with Deep Reinforcement Learning.
     No parameters were specified for RMSProp, so I'm using the default parameters.
     :param memory_max_capacity: The maximum size of the memory in the ExperienceReplayBuffer.
-    :param num_episodes: The number of episodes to train on.
+    :param num_frames: The number of time steps to train on before giving up.
     :param minibatch_size: The size of the minibatch to sample / train on.
     :param gamma: The decay rate to use.
     :param Q: A pretrained Q-value approximator for this task.
@@ -67,15 +67,16 @@ def deep_q_learning(memory_max_capacity: int, num_episodes: int, minibatch_size:
     states_to_check = []
     progress = []
     step_count = 0
+    num_episode = 0
 
-    for num_episode in range(num_episodes):
+    while step_count < num_frames:
         obs = env.reset()
         obs_list = [obs] * 4
         state = phi(obs_list)
         if num_episode == 0:
             states_to_check.append(state)
 
-        epsilon = max(0.1, 1 - num_episode / 1e7)
+        epsilon = max(0.1, 1 - step_count / 1e7)
 
         done = False
         while not done:
@@ -106,6 +107,7 @@ def deep_q_learning(memory_max_capacity: int, num_episodes: int, minibatch_size:
         progress.append(sum_max)
         print(f'Episode {num_episode} completed with progress {progress[-1]}')
         print(f'{step_count} steps taken so far')
+        num_episode += 1
 
     return Q, optimizer, progress
 
@@ -113,7 +115,7 @@ def deep_q_learning(memory_max_capacity: int, num_episodes: int, minibatch_size:
 if __name__ == "__main__":
     import pickle as pkl
 
-    Q, optimizer, progress = deep_q_learning(10e7, 200, 32, 0.99)
+    Q, optimizer, progress = deep_q_learning(10e7, 10e8, 32, 0.99)
     pkl.dump(progress, open('progress.pkl', 'wb'))
     pkl.dump(Q, open('Q.pkl', 'wb'))
     pkl.dump(optimizer, open('optimizer.pkl', 'wb'))
