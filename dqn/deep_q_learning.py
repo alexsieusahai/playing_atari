@@ -79,6 +79,7 @@ def deep_q_learning(memory_max_capacity: int, num_frames: int, minibatch_size: i
         epsilon = max(0.1, 1 - step_count / 1e7)
 
         done = False
+        disc_return = 0
         while not done:
             if np.random.random() < epsilon:
                 action = env.action_space.sample()
@@ -88,6 +89,7 @@ def deep_q_learning(memory_max_capacity: int, num_frames: int, minibatch_size: i
 
             previous_state = state
             obs, reward, done, _ = env.step(action)
+            disc_return = reward + gamma * disc_return
             obs_list.append(obs)
             obs_list.pop()
             state = phi(obs_list)
@@ -106,6 +108,7 @@ def deep_q_learning(memory_max_capacity: int, num_frames: int, minibatch_size: i
             sum_max += float(Q(state.to(device)).max(1)[0])
         progress.append(sum_max)
         print(f'Episode {num_episode} completed with progress {progress[-1]}')
+        print(f'Achieved a discounted return of {disc_return}')
         print(f'{step_count} steps taken so far')
         num_episode += 1
 
