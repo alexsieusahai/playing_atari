@@ -45,29 +45,36 @@ def update_weights(Q, optimizer, experience_dataset, gamma) -> None:
 
 
 def deep_q_learning(memory_max_capacity: int, num_episodes: int, minibatch_size: int,
-                    gamma: float):
+                    gamma: float, Q=None, optimizer=None):
     """
     Implementation of the Deep Q-learning with Experience Replay algorithm from 
         Playing Atari with Deep Reinforcement Learning.
     No parameters were specified for RMSProp, so I'm using the default parameters.
-    :params memory_max_capacity: The maximum size of the memory in the ExperienceReplayBuffer.
-    :params num_episodes: The number of episodes to train on.
-    :params minibatch_size: The size of the minibatch to sample / train on.
-    :params gamma: The decay rate to use.
+    :param memory_max_capacity: The maximum size of the memory in the ExperienceReplayBuffer.
+    :param num_episodes: The number of episodes to train on.
+    :param minibatch_size: The size of the minibatch to sample / train on.
+    :param gamma: The decay rate to use.
+    :param Q: A pretrained Q-value approximator for this task.
+    :param optimizer: The associated optimizer for Q for this task.
     :returns: A function approximator.
     """
     env = gym.make('Breakout-v0')
     device = torch.device('cuda')
     replay_memory = ExperienceReplayBuffer(memory_max_capacity)
-    Q = ConvolutionApproximator(4).double().to(device)  # 4 is amount of moves in breakout
-    optimizer = optim.RMSprop(Q.parameters())
+    Q = ConvolutionApproximator(4).double().to(device) if Q is None else Q  # 4 is amount of moves in breakout
+    optimizer = optim.RMSprop(Q.parameters()) if optimizer is None else optimizer
+
+    states_to_check = []
+    progress = []
+    step_count = 0
 
     for num_episode in range(num_episodes):
-        print(f'Episode {num_episode}')
-        phi_dict = {}
         obs = env.reset()
         obs_list = [obs] * 4
         state = phi(obs_list)
+        if num_episode == 0:
+            states_to_check.append(state)
+
         epsilon = max(0.1, 1 - num_episode / 1e7)
 
         done = False
@@ -83,18 +90,30 @@ def deep_q_learning(memory_max_capacity: int, num_episodes: int, minibatch_size:
             obs_list.append(obs)
             obs_list.pop()
             state = phi(obs_list)
+            if num_episode == 0:
+                states_to_check.append(state)
 
             replay_memory.append((previous_state, action, reward, state))
             experience_sample = replay_memory.uniform_sample(minibatch_size)
 
             update_weights(Q, optimizer, experience_sample, gamma)
 
-    return Q, optimizer
+            step_count += 1
+
+        sum_max = 0
+        for state in states_to_check:
+            sum_max += float(Q(state.to(device)).max(1)[0])
+        progress.append(sum_max)
+        print(f'Episode {num_episode} completed with progress {progress[-1]}')
+        print(f'{step_count} steps taken so far')
+
+    return Q, optimizer, progress
 
 
 if __name__ == "__main__":
     import pickle as pkl
 
-    Q, optimizer = deep_q_learning(10e7, 1, 32, 0.99)
+    Q, optimizer, progress = deep_q_learning(10e7, 200, 32, 0.99)
+    pkl.dump(progress, open('progress.pkl', 'wb'))
     pkl.dump(Q, open('Q.pkl', 'wb'))
     pkl.dump(optimizer, open('optimizer.pkl', 'wb'))
